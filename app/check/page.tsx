@@ -1,9 +1,9 @@
-'use client'
+'use server'
 
 import { redirect } from 'next/navigation';
 import React from 'react';
 
-export default function CheckPage() {
+export async function CheckPage() {
     React.useEffect(() => {
         fetch('/api/users', {
             method: 'POST'

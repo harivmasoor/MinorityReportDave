@@ -4,8 +4,54 @@ import Stripe from 'stripe';
 import { buffer } from "micro"; // If needed based on how you process the request body
 import dotenv from 'dotenv';
 
-dotenv.config();
 
+dotenv.config();
+interface DbConfig {
+    host: string;
+    user: string;
+    password: string;
+    database: string;
+    port: number;
+    ssl: {
+        ca: string;
+    };
+}
+const databaseName = "crimebot";
+
+const caCert = `-----BEGIN CERTIFICATE-----
+MIIDrzCCApegAwIBAgIQCDvgVpBCRrGhdWrJWZHHSjANBgkqhkiG9w0BAQUFADBh
+MQswCQYDVQQGEwJVUzEVMBMGA1UEChMMRGlnaUNlcnQgSW5jMRkwFwYDVQQLExB3
+d3cuZGlnaWNlcnQuY29tMSAwHgYDVQQDExdEaWdpQ2VydCBHbG9iYWwgUm9vdCBD
+QTAeFw0wNjExMTAwMDAwMDBaFw0zMTExMTAwMDAwMDBaMGExCzAJBgNVBAYTAlVT
+MRUwEwYDVQQKEwxEaWdpQ2VydCBJbmMxGTAXBgNVBAsTEHd3dy5kaWdpY2VydC5j
+b20xIDAeBgNVBAMTF0RpZ2lDZXJ0IEdsb2JhbCBSb290IENBMIIBIjANBgkqhkiG
+9w0BAQEFAAOCAQ8AMIIBCgKCAQEA4jvhEXLeqKTTo1eqUKKPC3eQyaKl7hLOllsB
+CSDMAZOnTjC3U/dDxGkAV53ijSLdhwZAAIEJzs4bg7/fzTtxRuLWZscFs3YnFo97
+nh6Vfe63SKMI2tavegw5BmV/Sl0fvBf4q77uKNd0f3p4mVmFaG5cIzJLv07A6Fpt
+43C/dxC//AH2hdmoRBBYMql1GNXRor5H4idq9Joz+EkIYIvUX7Q6hL+hqkpMfT7P
+T19sdl6gSzeRntwi5m3OFBqOasv+zbMUZBfHWymeMr/y7vrTC0LUq7dBMtoM1O/4
+gdW7jVg/tRvoSSiicNoxBN33shbyTApOB6jtSj1etX+jkMOvJwIDAQABo2MwYTAO
+BgNVHQ8BAf8EBAMCAYYwDwYDVR0TAQH/BAUwAwEB/zAdBgNVHQ4EFgQUA95QNVbR
+TLtm8KPiGxvDl7I90VUwHwYDVR0jBBgwFoAUA95QNVbRTLtm8KPiGxvDl7I90VUw
+DQYJKoZIhvcNAQEFBQADggEBAMucN6pIExIK+t1EnE9SsPTfrgT1eXkIoyQY/Esr
+hMAtudXH/vTBH1jLuG2cenTnmCmrEbXjcKChzUyImZOMkXDiqw8cvpOp/2PV5Adg
+06O/nVsJ8dWO41P0jmP6P6fbtGbfYmbW0W5BjfIttep3Sp+dWOIrWcBAI+0tKIJF
+PnlUkiaY4IBIqDfv8NZ5YBberOgOzW6sRBc4L0na4UU+Krk2U886UAb3LujEV0ls
+YSEY1QSteDwsOoBrp+uvFRTp2InBuThs4pFsiv9kuXclVzDAGySj4dzp30d8tbQk
+CAUw7C29C79Fv1C5qfPrmAESrciIxpg0X40KPMbp1ZWVbd4=
+-----END CERTIFICATE-----
+`;  
+
+const dbConfig: DbConfig = {
+    host: "crime-bot.mysql.database.azure.com",
+    user: "hari",
+    password: "crimebot12!", 
+    database: databaseName,
+    port: 3306,
+    ssl: {
+        ca: caCert,
+    },
+};
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2023-10-16",
 });
@@ -14,6 +60,7 @@ const webhookSecret = process.env.STRIPE_ENDPOINT_SECRET;
 
 // This is a rough sketch; adjust types and implementations as needed
 export async function POST(req: Request): Promise<Response> {
+    console.log('POST request');
     const sig = req.headers.get('stripe-signature');
 
     let rawBody = await req.text(); // Assuming you can directly get the raw body from the Request
@@ -28,13 +75,6 @@ export async function POST(req: Request): Promise<Response> {
             console.log(`Payment intent succeeded for user ${userEmail}`);
 
             if (userEmail) {
-                const dbConfig = {
-                    host: process.env.DB_HOST,
-                    user: process.env.DB_USER,
-                    password: process.env.DB_PASSWORD,
-                    database: process.env.DB_NAME,
-                    port: Number(process.env.DB_PORT || 11000)
-                };
 
                 const connection = await createConnection(dbConfig);
                 console.log(`Connected to database for user ${userEmail}`);
