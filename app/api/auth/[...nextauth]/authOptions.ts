@@ -3,6 +3,7 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import GithubProvider from "next-auth/providers/github"
 import GoogleProvider from "next-auth/providers/google";
 import {Provider} from "next-auth/providers";
+import {createUser} from "@/app/api/users/route";
 
 declare module 'next-auth' {
     interface Session {
@@ -48,11 +49,16 @@ if (providerTypes.length === 0) {
 let authOptions: NextAuthOptions = {
     providers: providers,
     callbacks: {
-        jwt({token, profile, session, user, account}) {
-            if (token && profile) {
-                token.id = profile.sub
-            } else if (token?.sub) {
-                token.id = token.sub
+        async jwt({token, profile, session, user, account, trigger}) {
+            if (trigger === "signIn" || trigger == "signUp") {
+                if (trigger === "signIn") {
+                    await createUser(profile?.email, profile?.name, user?.image || "")
+                }
+                if (token && profile) {
+                    token.id = profile.sub
+                } else if (token?.sub) {
+                    token.id = token.sub
+                }
             }
             return token
         },

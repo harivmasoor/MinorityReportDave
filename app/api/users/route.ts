@@ -1,6 +1,6 @@
 import { createConnection } from 'mysql2/promise';
 import { config } from 'dotenv';
-import {getServerSession} from "next-auth";
+import {getServerSession, Session} from "next-auth";
 import { RowDataPacket } from 'mysql2';
 
 
@@ -56,60 +56,49 @@ const dbConfig: DbConfig = {
 
   
   // Assuming sesh.user is of type User
-export async function POST(req: Request): Promise<Response> {
+export async function createUser(email: string | undefined, name: string | undefined, image: string | undefined) {
     console.log('POST request');
     try {
-        const sesh = await getServerSession(req); // Pass `req` as a property of GetServerSessionOptions
-        let email: string | null = null; // Default to null, adjust as needed
-
-        if (sesh && sesh.user && sesh.user.email) {
-            email = sesh.user.email;
-        }
-
         // Ensure email is present
         if (!email) {
-            return new Response(JSON.stringify({ error: 'No email provided' }), {
-                status: 400,
-                headers: { 'Content-Type': 'application/json' },
-            });
+            throw new Error('Email not found in session');
         }
 
         const connection = await createConnection(dbConfig);
-
-        // First, check if the user already exists
-        const [users] = await connection.execute<RowDataPacket[]>(
-            `SELECT * FROM users WHERE email = ?`,
-            [email]
-        );
-
-        // Now you can safely check users.length because TypeScript knows users is an array
-        if (users.length === 0) {
-            // User does not exist, add them with default tokens
-            await connection.execute(
-                `INSERT INTO users (name, email, google_image_url, token_remaining, signup_date) VALUES (?, ?, ?, 5, NOW())`,
-                [sesh?.user?.name, email, sesh?.user?.image]
+        try {
+            // First, check if the user already exists
+            const [users] = await connection.execute<RowDataPacket[]>(
+              `SELECT *
+               FROM users
+               WHERE email = ?`,
+              [email]
             );
-            console.log('User added with default tokens');
-        } else {
-            // User exists, update their tokens
-            await connection.execute(
-                `UPDATE users SET token_remaining = token_remaining + 5 WHERE email = ?`,
-                [email]
-            );
-            console.log('Tokens updated for existing user');
+
+            // Now you can safely check users.length because TypeScript knows users is an array
+            if (users.length === 0) {
+                // User does not exist, add them with default tokens
+                await connection.execute(
+                  `INSERT INTO users (name, email, google_image_url, token_remaining, signup_date)
+                   VALUES (?, ?, ?, 5, NOW())`,
+                  [name, email, image]
+                );
+                console.log('User added with default tokens');
+            } else {
+                // User exists, update their tokens
+                await connection.execute(
+                  `UPDATE users
+                   SET token_remaining = token_remaining + 5
+                   WHERE email = ?`,
+                  [email]
+                );
+                console.log('Tokens updated for existing user');
+            }
+        } finally {
+            await connection.end();
         }
-
-        await connection.end();
-        return new Response(JSON.stringify({ message: 'Operation successful' }), {
-            status: 200,
-            headers: { 'Content-Type': 'application/json' },
-        });
     } catch (error) {
         console.error(error);
-        return new Response(JSON.stringify({ error: 'Failed to execute operation' }), {
-            status: 500,
-            headers: { 'Content-Type': 'application/json' },
-        });
+        throw error
     }
 }
 
